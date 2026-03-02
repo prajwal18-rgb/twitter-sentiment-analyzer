@@ -1,0 +1,76 @@
+# Docker Compose Configuration
+# ==============================
+# Easily run the entire application with: docker-compose up
+
+version: '3.8'
+
+services:
+  # Complete Application (API + Frontend)
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sentiment-analyzer
+    ports:
+      - "8000:8000"  # API
+      - "8501:8501"  # Frontend
+    volumes:
+      - ./model:/app/model:ro  # Mount model files (read-only)
+      - ./data:/app/data:ro    # Mount data files (read-only)
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - sentiment-net
+
+  # Optional: API only (if you want to run API separately)
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sentiment-api
+    command: api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./model:/app/model:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    networks:
+      - sentiment-net
+    profiles:
+      - api-only
+
+  # Optional: Frontend only (if you want to run Frontend separately)
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sentiment-frontend
+    command: frontend
+    ports:
+      - "8501:8501"
+    depends_on:
+      - api
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    networks:
+      - sentiment-net
+    profiles:
+      - split
+
+networks:
+  sentiment-net:
+    driver: bridge
+
+volumes:
+  model-data:
+  app-data:
